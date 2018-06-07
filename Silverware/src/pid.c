@@ -32,6 +32,36 @@ THE SOFTWARE.
 #include "math.h"
 
 
+
+//**************************ADVANCED PID CONTROLLER - WITH PROFILE SWITCHING ON AUX SWITCH PIDPROFILE******************************* 
+// GENERAL SUMMARY OF THIS FEATURE:
+// stickAccelerator and stickTransition are a more detailed version of the traditional D term setpoint weight and transition variables that you may be familiar with in other firmwares.
+// The difference here is that we name the D term setpoint weight "Stick Accelerator" because it's actual function is to accelerate the response of the pid controller to stick inputs.
+// Another difference is that negative stick transitions are possible meaning that you can have a higher stick acceleration near center stick which fades to a lower stick acceleration at
+// full stick throws should you desire to see what that feels like.  Traditionally we are only used to being able to transition from a low setpoint to a higher one.
+// The final differences are that you can adjust each axis independently and also set up two seperate profiles so that you can switch "feels" in flight with the PIDPROFILE aux
+// channel selection set up in the receiver section of config.h
+//
+//HOW TO USE THIS FEATURE:
+// Safe values for stickAccelerator are from 0 to about 2.5 where 0 represents a "MEASUREMENT" based D term calculation and is the traditional Silverware PID controller, and a
+// a value of 1 represents an "ERROR" based D term calculation.  Values above 1 add even more acceleration but be reasonable and keep this below about 2.5.
+
+// Range of acceptable values for stickTransition are from -1 to 1.  Do not input a value outside of this range.  When stick transition is 0 - no stick transition will take place
+// and stick acceleration will remain constant regardless of stick position.  Positive values up to 1 will represent a transition where stick acceleration at it's maximum at full
+// stick deflection and is reduced by whatever percentage you enter here at stick center.  For example accelerator at 1 and transition at .3 means that there will be 30% reduction 
+// of acceleration at stick center, and acceleration strength of 1 at full stick.
+
+
+//pid profile A						 Roll  PITCH  YAW
+float stickAcceleratorProfileA[3] = { 0.0 , 0.0 , 0.0};           //keep values between 0 and 2.5
+float stickTransitionProfileA[3]  = { 0.0 , 0.0 , 0.0};           //keep values between -1 and 1
+
+//pid profile B						 Roll  PITCH  YAW
+float stickAcceleratorProfileB[3] = { 1.0 , 1.0 , 1.0};           //keep values between 0 and 2.5
+float stickTransitionProfileB[3]  = { 0.0 , 0.0 , 0.0};           //keep values between -1 and 1
+
+
+
 //************************************PIDS****************************************
 
 
@@ -45,7 +75,7 @@ THE SOFTWARE.
 //                         ROLL       PITCH     YAW
 float pidkp[PIDNUMBER] = {21.5e-2 , 21.5e-2  , 10.5e-1 }; 
 float pidki[PIDNUMBER] = { 14e-1  , 15e-1 , 15e-1 };	
-float pidkd[PIDNUMBER] = { 7.4e-1 , 7.4e-1  , 0.0e-1 };
+float pidkd[PIDNUMBER] = { 7.4e-1 , 7.4e-1  , 5.5e-1 };
 
 //6mm AwesomeSauce 20000kv Pids (Team Alienwhoop) - set filtering to WEAK_FILTERING
 //                         ROLL       PITCH     YAW
@@ -111,6 +141,7 @@ static float lasterror[PIDNUMBER];
 float v_compensation = 1.00;
 
 extern float error[PIDNUMBER];
+extern float setpoint[PIDNUMBER];
 extern float looptime;
 extern float gyro[3];
 extern int onground;
@@ -118,23 +149,11 @@ extern float looptime;
 extern int in_air;
 extern char aux[AUXNUMBER];
 extern float vbattfilt;
-extern int ledcommand;
+
 
 
 // multiplier for pids at 3V - for PID_VOLTAGE_COMPENSATION - default 1.33f from H101 code
 #define PID_VC_FACTOR 1.33f
-
-#ifdef NORMAL_DTERM
-static float lastrate[PIDNUMBER];
-#endif
-
-#ifdef NEW_DTERM
-static float lastratexx[PIDNUMBER][2];
-#endif
-
-#ifdef MAX_FLAT_LPF_DIFF_DTERM
-static float lastratexx[PIDNUMBER][4];
-#endif
 
 #ifdef SIMPSON_RULE_INTEGRAL
 static float lasterror2[PIDNUMBER];
@@ -217,110 +236,97 @@ float pid(int x )
     #else
     // P term with b disabled
     pidoutput[x] = error[x] * pidkp[x];
-    #endif
-    
-#ifdef FEED_FORWARD_STRENGTH
-if (aux[CH_AUX1]){		
-	if ( x < 2 ) {
-		static float lastSetpoint[2];
-		static float bucket[2];
-		static float buckettake[2];
-		if ( setpoint[x] != lastSetpoint[x] ) {
-			bucket[x] += setpoint[x] - lastSetpoint[x];
-			buckettake[x] = bucket[x] * 0.2f; // Spread it evenly over 5 ms (PACKET_PERIOD)
-		}
-		if ( fabsf( bucket[x] ) > 0.0f ) {
-			float take = buckettake[x];
-			if ( bucket[x] < 0.0f != take < 0.0f || fabsf( take ) > fabsf( bucket[x] ) ) {
-				take = bucket[x];
-			}
-			bucket[x] -= take;
-			float ff = take * timefactor * FEED_FORWARD_STRENGTH * pidkd[x];
-			
-			if ( ff < 0.0f == pidoutput[x] < 0.0f && fabsf( ff ) > fabsf( pidoutput[x] ) ) {
-				pidoutput[x] = ff;
-				ledcommand = 1;
-			}
-		}
-		lastSetpoint[x] = setpoint[x];
-	}
-}	
-#endif		
+    #endif	
 		
     // I term	
     pidoutput[x] += ierror[x];
 
     // D term
     // skip yaw D term if not set               
-    if ( pidkd[x] > 0 )
-    {
-        #ifdef NORMAL_DTERM
-        pidoutput[x] = pidoutput[x] - (gyro[x] - lastrate[x]) * pidkd[x] * timefactor  ;
-        lastrate[x] = gyro[x];
-        #endif
-
-        #ifdef NEW_DTERM
-        pidoutput[x] = pidoutput[x] - ( ( 0.5f) *gyro[x] 
-                    - (0.5f) * lastratexx[x][1] ) * pidkd[x] * timefactor  ;
-                        
-        lastratexx[x][1] = lastratexx[x][0];
-        lastratexx[x][0] = gyro[x];
-        #endif
-    
-        #ifdef MAX_FLAT_LPF_DIFF_DTERM 
-        pidoutput[x] = pidoutput[x] - ( + 0.125f *gyro[x] + 0.250f * lastratexx[x][0]
-                    - 0.250f * lastratexx[x][2] - ( 0.125f) * lastratexx[x][3]) * pidkd[x] * timefactor 						;
-
-        lastratexx[x][3] = lastratexx[x][2];
-        lastratexx[x][2] = lastratexx[x][1];
-        lastratexx[x][1] = lastratexx[x][0];
-        lastratexx[x][0] = gyro[x];
-        #endif 
-
-
-        #ifdef DTERM_LPF_1ST_HZ
+    if ( pidkd[x] > 0 ){
+			
+        #if (defined DTERM_LPF_1ST_HZ && !defined ADVANCED_PID_CONTROLLER)
         float dterm;
         static float lastrate[3];
         static float dlpf[3] = {0};
 
-        dterm = - (gyro[x] - lastrate[x]) * pidkd[x] * timefactor;
-        lastrate[x] = gyro[x];
-
-        lpf( &dlpf[x], dterm, FILTERCALC( 0.001 , 1.0f/DTERM_LPF_1ST_HZ ) );
-
-        pidoutput[x] += dlpf[x];                   
+						dterm = - (gyro[x] - lastrate[x]) * pidkd[x] * timefactor;
+						lastrate[x] = gyro[x];
+						lpf( &dlpf[x], dterm, FILTERCALC( 0.001 , 1.0f/DTERM_LPF_1ST_HZ ) );
+						pidoutput[x] += dlpf[x];                   
         #endif
         
-        #if (defined DTERM_LPF_2ND_HZ && defined ERROR_D_TERM)
+        #if (defined DTERM_LPF_1ST_HZ && defined ADVANCED_PID_CONTROLLER)
+				extern float rxcopy[4];		
+        float dterm;		
+				float transitionSetpointWeight[3];
+				float stickAccelerator[3];
+				float stickTransition[3];
+			if (aux[PIDPROFILE]){
+				stickAccelerator[x] = stickAcceleratorProfileB[x];
+				stickTransition[x] = stickTransitionProfileB[x];
+			}else{
+				stickAccelerator[x] = stickAcceleratorProfileA[x];
+				stickTransition[x] = stickTransitionProfileA[x];
+			}				
+				if (stickAccelerator[x] < 1){
+				transitionSetpointWeight[x] = (fabs(rxcopy[x]) * stickTransition[x]) + (1- stickTransition[x]);
+				}else{
+				transitionSetpointWeight[x] = (fabs(rxcopy[x]) * (stickTransition[x] / stickAccelerator[x])) + (1- stickTransition[x]);	
+				}
+        static float lastrate[3];
+				static float lastsetpoint[3];
+        static float dlpf[3] = {0};
+        
+						dterm = ((setpoint[x] - lastsetpoint[x]) * pidkd[x] * stickAccelerator[x] * transitionSetpointWeight[x] * timefactor) - ((gyro[x] - lastrate[x]) * pidkd[x] * timefactor);
+						lastsetpoint[x] = setpoint [x];
+						lastrate[x] = gyro[x];	
+						lpf( &dlpf[x], dterm, FILTERCALC( 0.001 , 1.0f/DTERM_LPF_1ST_HZ ) );
+						pidoutput[x] += dlpf[x];                    
+        #endif	
+     		
+        #if (defined DTERM_LPF_2ND_HZ && !defined ADVANCED_PID_CONTROLLER)
         float dterm;
         static float lastrate[3]; 
-				static float lasterrorx[PIDNUMBER];
         float lpf2( float in, int num);
-        if ( pidkd[x] > 0)
-        {
-					if (aux[CH_AUX1]){
-						     dterm =  (error[x] - lasterrorx[x]) * pidkd[x] * timefactor;
-                 lasterrorx[x] = error[x];
-					}else{	
-								 dterm = - (gyro[x] - lastrate[x]) * pidkd[x] * timefactor;
-								 lastrate[x] = gyro[x];	}
-	
-            dterm = lpf2(  dterm, x );
-            pidoutput[x] += dterm;}
-				#endif
-				
-        #if (defined DTERM_LPF_2ND_HZ && !defined ERROR_D_TERM)
-        float dterm;
-        static float lastrate[3]; 
-        float lpf2( float in, int num);
-        if ( pidkd[x] > 0){
+        
 						dterm = - (gyro[x] - lastrate[x]) * pidkd[x] * timefactor;
 						lastrate[x] = gyro[x];	
             dterm = lpf2(  dterm, x );
-            pidoutput[x] += dterm;}
+            pidoutput[x] += dterm;
 				#endif   
 
+				#if (defined DTERM_LPF_2ND_HZ && defined ADVANCED_PID_CONTROLLER)
+				extern float rxcopy[4];		
+        float dterm;		
+				float transitionSetpointWeight[3];
+				float stickAccelerator[3];
+				float stickTransition[3];
+			if (aux[PIDPROFILE]){
+				stickAccelerator[x] = stickAcceleratorProfileB[x];
+				stickTransition[x] = stickTransitionProfileB[x];
+			}else{
+				stickAccelerator[x] = stickAcceleratorProfileA[x];
+				stickTransition[x] = stickTransitionProfileA[x];
+			}				
+				if (stickAccelerator[x] < 1){
+				transitionSetpointWeight[x] = (fabs(rxcopy[x]) * stickTransition[x]) + (1- stickTransition[x]);
+				}else{
+				transitionSetpointWeight[x] = (fabs(rxcopy[x]) * (stickTransition[x] / stickAccelerator[x])) + (1- stickTransition[x]);	
+				}
+        static float lastrate[3];
+				static float lastsetpoint[3];
+        float lpf2( float in, int num);
+  
+						dterm = ((setpoint[x] - lastsetpoint[x]) * pidkd[x] * stickAccelerator[x] * transitionSetpointWeight[x] * timefactor) - ((gyro[x] - lastrate[x]) * pidkd[x] * timefactor);
+						lastsetpoint[x] = setpoint [x];
+						lastrate[x] = gyro[x];	
+            dterm = lpf2(  dterm, x );
+            pidoutput[x] += dterm;		
+				#endif
+				
     }
+		
     		#ifdef PID_VOLTAGE_COMPENSATION
 					pidoutput[x] *= v_compensation;
 				#endif
@@ -336,10 +342,13 @@ void pid_precalc()
 {
 	timefactor = 0.0032f / looptime;
 	
-	#ifdef PID_VOLTAGE_COMPENSATION
+#ifdef PID_VOLTAGE_COMPENSATION
 	v_compensation = mapf ( vbattfilt , 3.00 , 4.00 , PID_VC_FACTOR , 1.00);
 	if( v_compensation > PID_VC_FACTOR) v_compensation = PID_VC_FACTOR;
 	if( v_compensation < 1.00f) v_compensation = 1.00;
+	#ifdef LEVELMODE_PID_ATTENUATION
+	if (aux[LEVELMODE]) v_compensation *= LEVELMODE_PID_ATTENUATION;
+	#endif
 #endif
 }
 

@@ -19,39 +19,6 @@
 
 
 //**********************************************************************************************************************
-//***********************************************BETA TESTING ON STICK GESTURE******************************************
-// *************DEFINE ONLY ONE OPTION FROM THIS SECTION!!!
-// *************This is a new section that will allow certain beta testing features to be activated by the stick gesture
-// *************auxillary channel.  Even when defined - the quad will power up with these features off.  To activate -  
-// *************use the following stick gesture on the pitch/roll stick RIGHT-RIGHT-DOWN (leds will blink). To deactivate - 
-// *************stick gesture LEFT-LEFT-DOWN.  Please test the features you are interested in below and give feedback!!!
-
-// *************SPECIAL TEST MODE TO CHECK TRANSMITTER STICK THROWS
-// *************This define will allow you to check if your radio is reaching 100% throws entering <RIGHT-RIGHT-DOWN> gesture
-// ************* will disable throttle and will rapid blink the led when sticks are moved to 100% throws
-// *************entering <LEFT-LEFT-DOWN> will return the quad to normal operation.
-//#define STICK_TRAVEL_CHECK
-
-// *************SPECIAL TEST MODE TO CHANGE D TERM CALCULATION TO ERROR INSTEAD OF MEASUREMENT
-// *************This define will enable you to change the calculation of the PID's D term to track both sticks and gyro (error method)
-// *************instead of just gyro (measurement method).  The quad will start up using the measurement calculation.  Entering 
-// *************RIGHT-RIGHT-DOWN will change over to the error type D calculation.  LEFT-LEFT-DOWN will change back to measurement.
-//#define ERROR_D_TERM
-
-//WARNING WARNING WARNING - I FEEL LIKE THIS FEATURE IS BROKEN.  JOIN IN DISCUSSION ON MICRO MOTOR COMMUNITY OR RCGOUPS AFTER YOU TEST FOR YOURSELF.
-//I SEE/FEEL FEED FORWARD ACTIVATE WHEN STICKS LEAVE OR RETURN TO NEUTRAL POINT.  THAT SEEMS WRONG TO ME.
-// *************SPECIAL TEST MODE TO ACTIVATE FEEDFORWARD PID CONTROLLER
-// *************This define will allow you to test the feeling of a feed forward pid controller.  The quad will start up with the regular
-// *************pid controller running.  To activate feed forward - enter RIGHT-RIGHT-DOWN stick gesture.  When feed forward activates during
-// *************sharp stick commands - the leds will rapidly blink to indicate a feed forward condition.  This should help to tune this new feature.
-// *************The idea is for feed forward to accelerate sharp stick commands by replaceing the pidoutput for P with the derivative of stick inputs
-// *************but leave softer commands running on the stock pid controller with the softer feel of the measurement based D term.  LEFT-LEFT-DOWN gesture to exit.
-// *************https://www.rcgroups.com/forums/showpost.php?p=39667667&postcount=13956
-//#define FEED_FORWARD_STRENGTH 5.0f
-
-
-
-//**********************************************************************************************************************
 //***********************************************RECEIVER SETTINGS******************************************************
 
 // *************rate in deg/sec
@@ -114,6 +81,7 @@
 #define LEVELMODE CHAN_6
 #define RACEMODE  CHAN_7
 #define HORIZON   CHAN_8
+#define PIDPROFILE CHAN_9                //For switching stickAccelerator & stickTransition profiles on pid.c page
 #define RATES CHAN_ON
 #define LEDS_ON CHAN_ON
 
@@ -138,8 +106,9 @@
 //**********************************************************************************************************************
 //***********************************************VOLTAGE SETTINGS*******************************************************
 
-// ************* Raises pids automatically as battery voltage drops in flight
+// ************* Raises pids automatically as battery voltage drops in flight.
 #define PID_VOLTAGE_COMPENSATION
+#define LEVELMODE_PID_ATTENUATION 0.90f  //used to prevent oscillations in angle modes with pid_voltage_compensation enabled due to high pids
 
 // *************compensation for battery voltage vs throttle drop
 #define VDROP_FACTOR 0.7
@@ -174,8 +143,8 @@
 // *************Select the appropriate filtering set for your craft's gyro, D-term, and motor output or select CUSTOM_FILTERING to pick your own values.  
 // *************If your throttle does not want to drop crisply and quickly when you lower the throttle stick, then move to a stronger filter set
 
-//#define WEAK_FILTERING
-#define STRONG_FILTERING
+#define WEAK_FILTERING
+//#define STRONG_FILTERING
 //#define VERY_STRONG_FILTERING
 //#define CUSTOM_FILTERING
 
@@ -192,7 +161,6 @@
 // *************1st order adjustable, second order adjustable, or 3rd order fixed (non adjustable)
 //#define DTERM_LPF_1ST_HZ 100
 #define  DTERM_LPF_2ND_HZ 100
-//#define DTERM_LPF3_88    //non adjustable
 
 // *************enable motor output filter - select and adjust frequency
 //#define MOTOR_FILTER2_ALPHA MFILT1_HZ_90
@@ -286,11 +254,15 @@
 #define FLASH_SAVE1
 //#define FLASH_SAVE2
 
-// enable inverted flight code ( brushless only )
+// *************enable inverted flight code ( brushless only )
 //#define INVERTED_ENABLE
 //#define FN_INVERTED CH_OFF //for brushless only
 
-
+// *************SPECIAL TEST MODE TO CHECK TRANSMITTER STICK THROWS
+// *************This define will allow you to check if your radio is reaching 100% throws entering <RIGHT-RIGHT-DOWN> gesture
+// ************* will disable throttle and will rapid blink the led when sticks are moved to 100% throws
+// *************entering <LEFT-LEFT-DOWN> will return the quad to normal operation.
+//#define STICK_TRAVEL_CHECK
 
 
 
@@ -303,6 +275,8 @@
 //#############################################################################################################################
 //#############################################################################################################################
 
+//enables use of stick accelerator and stick transition for d term lpf 1 & 2
+#define ADVANCED_PID_CONTROLLER
 
 //Throttle must drop below this value if arming feature is enabled for arming to take place.  MIX_INCREASE_THROTTLE_3 if enabled
 //will also not activate on the ground untill this threshold is passed during takeoff for safety and better staging behavior.
@@ -662,3 +636,13 @@
 #define MOTOR2_PIN_PA4
 #define MOTOR3_PIN_PA6
 #endif
+
+
+//**********************************************************************************************************************
+//***********************************************BETA TESTING ON STICK GESTURE******************************************
+// *************DEFINE ONLY ONE OPTION FROM THIS SECTION!!!
+// *************This is a new section that will allow certain beta testing features to be activated by the stick gesture
+// *************auxillary channel.  Even when defined - the quad will power up with these features off.  To activate -  
+// *************use the following stick gesture on the pitch/roll stick RIGHT-RIGHT-DOWN (leds will blink). To deactivate - 
+// *************stick gesture LEFT-LEFT-DOWN.  Please test the features you are interested in below and give feedback!!!
+

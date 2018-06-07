@@ -289,13 +289,13 @@ if ( liberror )
         // read gyro and accelerometer data	
 		sixaxis_read();
 		
-		
         // all flight calculations and motors
 		control();
 
-        // attitude calculations for level mode
+        // attitude calculations for level mode 		
  		extern void imu_calc(void);		
-		imu_calc();       
+		imu_calc(); 
+       
       
 // battery low logic
 
