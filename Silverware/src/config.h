@@ -11,10 +11,10 @@
 // *************uncomment BWHOOP define for bwhoop, bwhoop pro, E011C Santa Edition, and Beta FPV Lite Flight Controllers
 // *************uncomment E011 define for E011 flight Controller
 // *************uncomment H8mini_blue_board for the H8 mini flight controller with blue circuit board
-#define BWHOOP
+//#define BWHOOP
 //#define E011
 //#define H8mini_blue_board
-//#define Alienwhoop_ZERO  // requires defining RX_SBUS radio protocol
+#define Alienwhoop_ZERO  // requires defining RX_SBUS radio protocol
 
 
 
@@ -48,13 +48,12 @@
 
 // *************Radio protocol selection
 // *************select only one
-//#define RX_BAYANG_PROTOCOL
-//#define RX_BAYANG_PROTOCOL_TELEMETRY
-#define RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND
-//#define RX_BAYANG_PROTOCOL_BLE_BEACON
-//#define RX_BAYANG_BLE_APP
+#define RX_SBUS
+//#define RX_DSMX_2048
+//#define RX_DSM2_1024
 //#define RX_NRF24_BAYANG_TELEMETRY
-//#define RX_SBUS
+//#define RX_BAYANG_PROTOCOL_BLE_BEACON
+//#define RX_BAYANG_PROTOCOL_TELEMETRY_AUTOBIND
 
 // *************Transmitter Type Selection
 //#define USE_STOCK_TX
@@ -83,7 +82,7 @@
 #define HORIZON   CHAN_8
 #define PIDPROFILE CHAN_9                //For switching stickAccelerator & stickTransition profiles on pid.c page
 #define RATES CHAN_ON
-#define LEDS_ON CHAN_ON
+#define LEDS_ON CHAN_10
 
 // *************switch for fpv / other, requires fet
 // *************comment out to disable
@@ -116,14 +115,16 @@
 #define AUTO_VDROP_FACTOR
 
 // *************lower throttle when battery below threshold - forced landing low voltage cutoff
-//#define LVC_LOWER_THROTTLE
+// *************THIS FEATURE WILL BE OFF BY DEFAULT EVEN WHEN DEFINED - USE STICK GESTURE LEFT-LEFT-LEFT TO ACTIVATE THEN DOWN-DOWN-DOWN TO SAVE AS ON
+// *************Led light will blink once when LVC forced landing is turned on, blink twice when turned off, and will blink multiple times upon save command
+#define LVC_LOWER_THROTTLE
 #define LVC_LOWER_THROTTLE_VOLTAGE 3.30
 #define LVC_LOWER_THROTTLE_VOLTAGE_RAW 2.70
 #define LVC_LOWER_THROTTLE_KP 3.0
 
-// *************do not start software if battery is too low
+// *************do not start software if battery is too low (below 3.3v)
 // *************flashes 2 times repeatedly at startup
-//#define STOP_LOWBATTERY
+#define STOP_LOWBATTERY
 
 // *************voltage to start warning led blinking
 #define VBATTLOW 3.5
@@ -143,10 +144,11 @@
 // *************Select the appropriate filtering set for your craft's gyro, D-term, and motor output or select CUSTOM_FILTERING to pick your own values.  
 // *************If your throttle does not want to drop crisply and quickly when you lower the throttle stick, then move to a stronger filter set
 
-#define WEAK_FILTERING
+//#define WEAK_FILTERING
 //#define STRONG_FILTERING
 //#define VERY_STRONG_FILTERING
 //#define CUSTOM_FILTERING
+#define ALIENWHOOP_ZERO_FILTERING
 
 
 #ifdef CUSTOM_FILTERING
@@ -163,30 +165,23 @@
 #define  DTERM_LPF_2ND_HZ 100
 
 // *************enable motor output filter - select and adjust frequency
-//#define MOTOR_FILTER2_ALPHA MFILT1_HZ_90
-#define MOTOR_KAL KAL1_HZ_70
+#define MOTOR_FILTER2_ALPHA MFILT1_HZ_70
+//#define MOTOR_KAL KAL1_HZ_70
 #endif
-
 
 
 //**********************************************************************************************************************
 //***********************************************MOTOR OUTPUT SETTINGS**************************************************
+
+// *************invert yaw pid for "PROPS OUT" configuration
+#define INVERT_YAW_PID
 
 // *************pwm frequency for motor control
 // *************a higher frequency makes the motors more linear
 // *************in Hz
 #define PWMFREQ 32000
 
-// *************motor curve to use - select one
-// *************the pwm frequency has to be set independently
-#define MOTOR_CURVE_NONE
-//#define MOTOR_CURVE_6MM_490HZ
-//#define MOTOR_CURVE_85MM_8KHZ
-//#define MOTOR_CURVE_85MM_32KHZ
-//#define BOLDCLASH_716MM_8K
-//#define BOLDCLASH_716MM_24K
-
-// *************clip feedforward attempts to resolve issues that occur near full throttle
+// *************clip feedforward attempts to resolve issues that occur near full throttle by adding any clipped motor commands to the next loop output
 //#define CLIP_FF
 
 // *************torque boost is a highly eperimental feature.  it is a lpf D term on motor outputs that will accelerate the response
@@ -199,7 +194,7 @@
 
 // *************makes throttle feel more poppy - can intensify small throttle imbalances visible in FPV if factor is set too high
 //#define THROTTLE_TRANSIENT_COMPENSATION 
-#define THROTTLE_TRANSIENT_COMPENSATION_FACTOR 4.0 
+//#define THROTTLE_TRANSIENT_COMPENSATION_FACTOR 4.0 
  
 // *************throttle angle compensation in level mode
 //#define AUTO_THROTTLE
@@ -213,12 +208,7 @@
 
 //#define MIX_LOWER_THROTTLE_3
 #define MIX_INCREASE_THROTTLE_3
-//Currently eperimenting with the value 1.0f below for whoop format.  Default was previously .2f and should remain .2f
-//for anything other than a whoop.  The value 1.0f gives "airmode" 100% authority over throttle and is AWESOME on a whoop for locked in dives!!
 #define MIX_THROTTLE_INCREASE_MAX 0.2f
-
-// *************invert yaw pid for "PROPS OUT" configuration
-//#define INVERT_YAW_PID
 
 //**************joelucid's yaw fix
 #define YAW_FIX
@@ -262,7 +252,7 @@
 // *************This define will allow you to check if your radio is reaching 100% throws entering <RIGHT-RIGHT-DOWN> gesture
 // ************* will disable throttle and will rapid blink the led when sticks are moved to 100% throws
 // *************entering <LEFT-LEFT-DOWN> will return the quad to normal operation.
-//#define STICK_TRAVEL_CHECK
+#define STICK_TRAVEL_CHECK
 
 
 
@@ -296,6 +286,22 @@
 #define MOTOR_MIN_VALUE 0.05
 
 
+#ifdef LVC_LOWER_THROTTLE
+#define SWITCHABLE_FEATURE_2
+#endif
+
+#ifdef INVERT_YAW_PID
+#define SWITCHABLE_FEATURE_3
+#endif
+
+#ifdef ALIENWHOOP_ZERO_FILTERING
+#define SOFT_KALMAN_GYRO KAL1_HZ_90
+#define  DTERM_LPF_2ND_HZ 100
+#define MOTOR_FILTER2_ALPHA MFILT1_HZ_50
+#define SWITCHABLE_MOTOR_FILTER2_ALPHA MFILT1_HZ_90
+#define SWITCHABLE_FEATURE_1
+#endif
+
 #ifdef WEAK_FILTERING
 #define SOFT_KALMAN_GYRO KAL1_HZ_90
 #define  DTERM_LPF_2ND_HZ 100
@@ -328,6 +334,10 @@
 // throttle direct to motors for thrust measure as a flight mode
 //#define MOTORS_TO_THROTTLE_MODE MULTI_CHAN_8
 
+// *************motor curve to use - select one
+// *************the pwm frequency has to be set independently
+#define MOTOR_CURVE_NONE
+
 // loop time in uS
 // this affects soft gyro lpf frequency if used
 #define LOOPTIME 1000
@@ -350,7 +360,7 @@
 
 // overclock to 64Mhz
 
-//#define ENABLE_OVERCLOCK
+#define ENABLE_OVERCLOCK
 
 #pragma diag_warning 1035 , 177 , 4017
 #pragma diag_error 260
@@ -405,7 +415,8 @@
 #define SENSOR_ROTATE_90_CW
 
 // SPI PINS DEFINITONS & RADIO
-#ifdef RX_SBUS
+#if defined(RX_SBUS) || defined(RX_DSMX_2048) || defined(RX_DSM2_1024)
+#define SERIAL_RX_SPEKBIND_BINDTOOL_PIN GPIO_Pin_3
 #define SERIAL_RX_PIN GPIO_Pin_14
 #define SERIAL_RX_PORT GPIOA
 #define SERIAL_RX_SOURCE GPIO_PinSource14
@@ -469,7 +480,8 @@
 #define SOFTI2C_PUSHPULL_CLK
 
 // SPI PINS DEFINITONS & RADIO
-#ifdef RX_SBUS
+#if defined(RX_SBUS) || defined(RX_DSMX_2048) || defined(RX_DSM2_1024)
+#define SERIAL_RX_SPEKBIND_BINDTOOL_PIN GPIO_Pin_3
 #define SERIAL_RX_PIN GPIO_Pin_14
 #define SERIAL_RX_PORT GPIOA
 #define SERIAL_RX_SOURCE GPIO_PinSource14
@@ -531,7 +543,8 @@
 #define SENSOR_ROTATE_180
 
 // SPI PINS DEFINITONS & RADIO
-#ifdef RX_SBUS
+#if defined(RX_SBUS) || defined(RX_DSMX_2048) || defined(RX_DSM2_1024)
+#define SERIAL_RX_SPEKBIND_BINDTOOL_PIN GPIO_Pin_3
 #define SERIAL_RX_PIN GPIO_Pin_14
 #define SERIAL_RX_PORT GPIOA
 #define SERIAL_RX_SOURCE GPIO_PinSource14
@@ -593,7 +606,9 @@
 #define SENSOR_ROTATE_90_CCW
 
 // SPI PINS DEFINITONS & RADIO
-#ifdef RX_SBUS
+#if defined(RX_SBUS) || defined(RX_DSMX_2048) || defined(RX_DSM2_1024)
+#define SERIAL_RX_SPEKBIND_BINDTOOL_PIN GPIO_Pin_2
+#define SERIAL_RX_SPEKBIND_RX_PIN GPIO_Pin_3
 #define SERIAL_RX_PIN GPIO_Pin_3
 #define SERIAL_RX_PORT GPIOA
 #define SERIAL_RX_SOURCE GPIO_PinSource3

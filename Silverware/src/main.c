@@ -121,7 +121,11 @@ int in_air;
 int armed_state;
 int arming_release;
 int binding_while_armed = 1;
-int rx_ready = 0;
+
+//Experimental Flash Memory Feature
+int flash_feature_1 = 0;
+int flash_feature_2 = 0;
+int flash_feature_3 = 0;
 
 // for led flash on gestures
 int ledcommand = 0;
@@ -151,6 +155,12 @@ clk_init();
 	
   time_init();
 
+
+#if defined(RX_DSMX_2048) || defined(RX_DSM2_1024)    
+		rx_spektrum_bind(); 
+#endif
+	
+	
 	delay(100000);
 		
 	i2c_init();	
@@ -184,14 +194,16 @@ aux[CH_AUX1] = 1;
 #endif
     
     
-    #ifdef FLASH_SAVE1
+ #ifdef FLASH_SAVE1
 // read pid identifier for values in file pid.c
     flash_hard_coded_pid_identifier();
 
 // load flash saved variables
     flash_load( );
 #endif
-    	
+
+
+	
 	rx_init();
 
 	
@@ -262,7 +274,7 @@ if ( liberror )
 #endif  
 
 	while(1)
-	{
+	{ 
 		// gettime() needs to be called at least once per second 
 		unsigned long time = gettime(); 
 		looptime = ((uint32_t)( time - lastlooptime));
@@ -400,7 +412,7 @@ if( thrfilt > 0.1f )
 	 gestures( );
 	}
 
-        
+   
 
 
 if ( LED_NUMBER > 0)
@@ -420,8 +432,8 @@ if ( LED_NUMBER > 0)
                     ledflash ( 500000, 15);			
                 }
             else 
-            {   rx_ready = 1;
-                int leds_on = aux[LEDS_ON];
+            {  
+                int leds_on = !aux[LEDS_ON];
                 if (ledcommand)
                 {
                     if (!ledcommandtime)

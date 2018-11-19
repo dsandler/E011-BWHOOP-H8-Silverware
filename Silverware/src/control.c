@@ -49,7 +49,6 @@ extern int in_air;
 extern int arming_release;
 extern int binding_while_armed;
 extern int rx_ready;
-extern int rx_state;
 
 extern float rx[];
 extern float gyro[3];
@@ -335,7 +334,7 @@ if (aux[LEVELMODE]&&!acro_override){
 #else																												  											// CONDITION: arming feature is enabled
 	if (!aux[ARMING]){																					 										  // 						CONDITION: switch is DISARMED
 		armed_state = 0;																															  // 												disarm the quad by setting armed state variable to zero
-		if ((rx_ready == 1) && (rx_state ==1))	binding_while_armed = 0;																		//                        rx is bound and has been disarmed so clear binding while armed flag
+		if (rx_ready ==1)	binding_while_armed = 0;																			//                        rx is bound and has been disarmed so clear binding while armed flag
 	}else{ 																				   						  										// 						CONDITION: switch is ARMED
 		if (((rx[3] > THROTTLE_SAFETY) && (arming_release == 0)) || (binding_while_armed == 1)){ 		//				   CONDITION: (throttle is above safety limit and ARMING RELEASE FLAG IS NOT CLEARED) OR (bind just took place with transmitter armed)		
 			armed_state = 0;																				 										  //                         	 				override to disarmed state and rapid blink the leds
@@ -438,6 +437,8 @@ if (aux[CH_AUX1]){
 			}
 		#endif				
 		
+	
+		throttle = 0;										//zero out throttle so it does not come back on as idle up value if enabled			
 		onground = 1;
 		thrsum = 0;
 		
@@ -491,40 +492,78 @@ extern float throttlehpf( float in );
 
 		    }
 #endif
-	
-            
+	           
             
 #ifdef LVC_LOWER_THROTTLE
-extern float vbatt_comp;
-extern float vbattfilt;
+	
+	#ifdef SWITCHABLE_FEATURE_2
+	extern float vbatt_comp;
+	extern float vbattfilt;
+	extern int flash_feature_2;
+	static float throttle_i = 0.0f;
+	float throttle_p = 0.0f;
+		if (flash_feature_2 == 1){
+			// can be made into a function
+			if (vbattfilt < (float) LVC_LOWER_THROTTLE_VOLTAGE_RAW ) 
+			throttle_p = ((float) LVC_LOWER_THROTTLE_VOLTAGE_RAW - vbattfilt) *(float) LVC_LOWER_THROTTLE_KP;
+			// can be made into a function
+			if (vbatt_comp < (float) LVC_LOWER_THROTTLE_VOLTAGE) 
+			throttle_p = ((float) LVC_LOWER_THROTTLE_VOLTAGE - vbatt_comp) *(float) LVC_LOWER_THROTTLE_KP;	
 
-static float throttle_i = 0.0f;
+			if ( throttle_p > 1.0f ) throttle_p = 1.0f;	
 
- float throttle_p = 0.0f;
+			if ( throttle_p > 0 ) 
+			{
+				throttle_i += throttle_p * 0.0001f; //ki
+			}
+			else throttle_i -= 0.001f;// ki on release
 
-// can be made into a function
-if (vbattfilt < (float) LVC_LOWER_THROTTLE_VOLTAGE_RAW ) 
-   throttle_p = ((float) LVC_LOWER_THROTTLE_VOLTAGE_RAW - vbattfilt) *(float) LVC_LOWER_THROTTLE_KP;
-// can be made into a function
-if (vbatt_comp < (float) LVC_LOWER_THROTTLE_VOLTAGE) 
-   throttle_p = ((float) LVC_LOWER_THROTTLE_VOLTAGE - vbatt_comp) *(float) LVC_LOWER_THROTTLE_KP;	
+			if ( throttle_i > 0.5f) throttle_i = 0.5f;
+			if ( throttle_i < 0.0f) throttle_i = 0.0f;
 
-if ( throttle_p > 1.0f ) throttle_p = 1.0f;
+			throttle -= throttle_p + throttle_i;
+		}else{
+			//do nothing - feature is disabled via stick gesture
+		}
+	#else 
+	extern float vbatt_comp;
+	extern float vbattfilt;
+	static float throttle_i = 0.0f;
+	float throttle_p = 0.0f;
+		// can be made into a function
+		if (vbattfilt < (float) LVC_LOWER_THROTTLE_VOLTAGE_RAW ) 
+		throttle_p = ((float) LVC_LOWER_THROTTLE_VOLTAGE_RAW - vbattfilt) *(float) LVC_LOWER_THROTTLE_KP;
+		// can be made into a function
+		if (vbatt_comp < (float) LVC_LOWER_THROTTLE_VOLTAGE) 
+		throttle_p = ((float) LVC_LOWER_THROTTLE_VOLTAGE - vbatt_comp) *(float) LVC_LOWER_THROTTLE_KP;	
 
-if ( throttle_p > 0 ) 
-{
-    throttle_i += throttle_p * 0.0001f; //ki
-}
-else throttle_i -= 0.001f;// ki on release
+		if ( throttle_p > 1.0f ) throttle_p = 1.0f;
 
-if ( throttle_i > 0.5f) throttle_i = 0.5f;
-if ( throttle_i < 0.0f) throttle_i = 0.0f;
+		if ( throttle_p > 0 ) 
+		{
+			throttle_i += throttle_p * 0.0001f; //ki
+		}
+		else throttle_i -= 0.001f;// ki on release
 
-throttle -= throttle_p + throttle_i;
+		if ( throttle_i > 0.5f) throttle_i = 0.5f;
+		if ( throttle_i < 0.0f) throttle_i = 0.0f;
+
+		throttle -= throttle_p + throttle_i;		
+	#endif
 #endif
 
+
 #ifdef INVERT_YAW_PID
-pidoutput[2] = -pidoutput[2];			
+	#ifdef SWITCHABLE_FEATURE_3
+	extern int flash_feature_3;
+		if (flash_feature_3 == 0){
+			pidoutput[2] = -pidoutput[2];
+		}else{
+			//do nothing
+		}
+	#else
+		pidoutput[2] = -pidoutput[2];
+	#endif
 #endif
 	
 #ifdef INVERTED_ENABLE
@@ -551,7 +590,16 @@ else
 
 #ifdef INVERT_YAW_PID
 // we invert again cause it's used by the pid internally (for limit)
-pidoutput[2] = -pidoutput[2];			
+	#ifdef SWITCHABLE_FEATURE_3
+	extern int flash_feature_3;
+		if (flash_feature_3 == 0){
+			pidoutput[2] = -pidoutput[2];
+		}else{
+			//do nothing
+		}
+	#else
+		pidoutput[2] = -pidoutput[2];
+	#endif		
 #endif
 
 		for ( int i = 0 ; i <= 3 ; i++)
@@ -831,15 +879,25 @@ thrsum = 0;
 
 
 float motor_filt[4];
+#if defined(MOTOR_FILTER2_ALPHA) && defined(SWITCHABLE_MOTOR_FILTER2_ALPHA) && defined(SWITCHABLE_FEATURE_1)
 
 float motorlpf( float in , int x)
-{
-    
+{ 
+		extern int flash_feature_1;
+		if (flash_feature_1 == 0){
     lpf(&motor_filt[x] , in , 1 - MOTOR_FILTER2_ALPHA);
-       
-    return motor_filt[x];
+    }else{
+		lpf(&motor_filt[x] , in , 1 - SWITCHABLE_MOTOR_FILTER2_ALPHA);		
+		}
+    return motor_filt[x];	
 }
-
+#else
+float motorlpf( float in , int x)
+{ 
+	lpf(&motor_filt[x] , in , 1 - MOTOR_FILTER2_ALPHA);
+  return motor_filt[x];
+}
+#endif
 
 float hann_lastsample[4];
 float hann_lastsample2[4];
